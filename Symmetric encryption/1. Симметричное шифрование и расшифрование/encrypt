@@ -1,0 +1,71 @@
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from cryptography.hazmat.backends import default_backend
+import os
+import sys
+
+KEY_LENGTH = 32
+IV_LENGTH = 12
+AUTH_TAG_LENGTH = 16
+
+def encrypt(in_file, out_file, key, iv):
+    exit_code = 0
+    backend = default_backend()
+    cipher = Cipher(algorithms.AES(key), modes.GCM(iv), backend=backend)
+    encryptor = cipher.encryptor()
+
+    try:
+        while True:
+            chunk = in_file.read(BUF_SIZE)
+            if not chunk:
+                break
+            ciphertext = encryptor.update(chunk)
+            out_file.write(ciphertext)
+
+        ciphertext = encryptor.finalize()
+        out_file.write(ciphertext)
+
+        auth_tag = encryptor.tag
+        out_file.write(auth_tag)
+    except Exception as e:
+        print("Encryption error:", e)
+        exit_code = 1
+    return exit_code
+
+def main():
+    exit_code = 0
+    if len(sys.argv) != 4:
+        print("Usage: {} INPUT_FILE OUTPUT_FILE KEY_HEX".format(sys.argv[0]))
+        exit_code = 1
+        return exit_code
+
+    in_fname = sys.argv[1]
+    out_fname = sys.argv[2]
+    key_hex = bytes.fromhex(sys.argv[3])
+
+    if len(key_hex) != KEY_LENGTH:
+        print("Wrong key, must be {} hex digits".format(KEY_LENGTH * 2))
+        exit_code = 1
+        return exit_code
+
+    try:
+        with open(in_fname, 'rb') as in_file, open(out_fname, 'wb') as out_file:
+            iv = os.urandom(IV_LENGTH)
+            out_file.write(iv)  # Write the IV at the beginning of the file
+
+            # Calculate the maximum size of the encrypted file
+            max_encrypted_size = os.path.getsize(in_fname) + IV_LENGTH + AUTH_TAG_LENGTH
+
+            # Adjust buffer size to avoid exceeding the size of the original file
+            global BUF_SIZE
+            BUF_SIZE = min(BUF_SIZE, max_encrypted_size - IV_LENGTH - AUTH_TAG_LENGTH)
+
+            exit_code = encrypt(in_file, out_file, key_hex, iv)
+    except IOError as e:
+        print("IO error:", e)
+        exit_code = 1
+
+    return exit_code
+
+if __name__ == "__main__":
+    BUF_SIZE = 64 * 1024  # Default buffer size
+    sys.exit(main())

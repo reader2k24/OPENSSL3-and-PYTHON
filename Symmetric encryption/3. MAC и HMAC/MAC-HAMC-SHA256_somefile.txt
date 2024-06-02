@@ -1,0 +1,2 @@
+# Command: openssl mac -macopt hexkey:<ключ-256bit> -digest sha256 -in somefile.txt HMAC 
+4C3F4F1D82284F3C92B5D1B51DA0137B79661EF253E178C071D7A2264161B9AD

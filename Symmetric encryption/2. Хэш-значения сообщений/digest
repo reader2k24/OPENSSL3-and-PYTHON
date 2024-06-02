@@ -1,0 +1,34 @@
+import hashlib
+import sys
+
+def digest(file_path):
+    try:
+        with open(file_path, 'rb') as f:
+            sha3_256 = hashlib.sha3_256()
+            while True:
+                data = f.read(64 * 1024)
+                if not data:
+                    break
+                sha3_256.update(data)
+            return sha3_256.hexdigest()
+    except IOError as e:
+        print(f"Could not open or read file: {file_path}", file=sys.stderr)
+        return None
+
+def main(argv):
+    if len(argv) != 2:
+        print(f"Usage: {argv[0]} INPUT_FILE", file=sys.stderr)
+        return 1
+
+    file_path = argv[1]
+    digest_hex = digest(file_path)
+
+    if digest_hex is None:
+        print("Message digest calculation failed", file=sys.stderr)
+        return 1
+
+    print(f"SHA3-256({file_path})= {digest_hex}")
+    return 0
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))

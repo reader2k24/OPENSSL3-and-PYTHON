@@ -1,0 +1,73 @@
+import sys
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from cryptography.hazmat.backends import default_backend
+import os
+
+KEY_LENGTH = 32
+IV_LENGTH = 12
+AUTH_TAG_LENGTH = 16
+BUF_SIZE = 64 * 1024
+
+def decrypt(in_file_path, out_file_path, key_hex, error_stream=sys.stderr):
+    try:
+        key = bytes.fromhex(key_hex)
+        if len(key) != KEY_LENGTH:
+            raise ValueError(f"Wrong key length: {len(key)} bytes, expected {KEY_LENGTH} bytes")
+
+        with open(in_file_path, 'rb') as in_file, open(out_file_path, 'wb') as out_file:
+            iv = in_file.read(IV_LENGTH)
+            if len(iv) != IV_LENGTH:
+                raise ValueError(f"Failed to read IV. Expected {IV_LENGTH} bytes, got {len(iv)} bytes.")
+
+            # Get the size of the input file
+            in_file.seek(0, os.SEEK_END)
+            in_file_size = in_file.tell()
+            in_file.seek(IV_LENGTH, os.SEEK_SET)
+
+            # Calculate the position of the authentication tag
+            auth_tag_pos = in_file_size - AUTH_TAG_LENGTH
+            if auth_tag_pos <= IV_LENGTH:
+                raise ValueError("Invalid file size. The file is too small to contain both IV and authentication tag.")
+
+            cipher = Cipher(algorithms.AES(key), modes.GCM(iv), backend=default_backend())
+            decryptor = cipher.decryptor()
+
+            # Read and decrypt data until reaching the authentication tag
+            current_pos = IV_LENGTH
+            while current_pos < auth_tag_pos:
+                in_nbytes_left = auth_tag_pos - current_pos
+                in_nbytes_wanted = min(BUF_SIZE, in_nbytes_left)
+
+                in_data = in_file.read(in_nbytes_wanted)
+                if len(in_data) == 0:
+                    break
+
+                out_data = decryptor.update(in_data)
+                out_file.write(out_data)
+                current_pos += len(in_data)
+
+            # Read the authentication tag
+            auth_tag = in_file.read(AUTH_TAG_LENGTH)
+            if len(auth_tag) != AUTH_TAG_LENGTH:
+                raise ValueError(f"Failed to read authentication tag. Expected {AUTH_TAG_LENGTH} bytes, got {len(auth_tag)} bytes.")
+
+            # Finalize the decryption process with the authentication tag
+            decryptor.finalize_with_tag(auth_tag)
+
+        print("Decryption succeeded", file=sys.stderr)
+        return 0
+
+    except Exception as e:
+        print(f"Decryption failed: {e}", file=error_stream)
+        return 1
+
+if __name__ == "__main__":
+    if len(sys.argv) != 4:
+        print(f"Usage: {sys.argv[0]} <input_file> <output_file> <key_hex>", file=sys.stderr)
+        sys.exit(1)
+
+    in_file_path = sys.argv[1]
+    out_file_path = sys.argv[2]
+    key_hex = sys.argv[3]
+
+    sys.exit(decrypt(in_file_path, out_file_path, key_hex))

@@ -1,0 +1,51 @@
+print("[*] Command: python3 kdf 'Your_password' 'SALT 128bit(openssl rand -hex 16)'")
+
+from cryptography.hazmat.primitives.kdf.scrypt import Scrypt
+from cryptography.hazmat.backends import default_backend
+import binascii
+import sys
+
+KEY_LENGTH = 256 // 8
+
+def derive_key(password, salt_hex):
+    try:
+        salt = binascii.unhexlify(salt_hex)
+    except binascii.Error:
+        print(f"Wrong salt \"{salt_hex}\", must consist of even number of hex digits", file=sys.stderr)
+        return None
+
+    # OWASP recommended settings.
+    scrypt_n = 65536
+    scrypt_r = 8
+    scrypt_p = 1
+
+    kdf = Scrypt(
+        salt=salt,
+        length=KEY_LENGTH,
+        n=scrypt_n,
+        r=scrypt_r,
+        p=scrypt_p,
+        backend=default_backend()
+    )
+
+    key = kdf.derive(password.encode())
+    return key
+
+def main(argv):
+    if len(argv) != 3:
+        print(f"Usage: {argv[0]} PASSWORD SALT_HEX", file=sys.stderr)
+        return 1
+
+    password = argv[1]
+    salt_hex = argv[2]
+
+    key = derive_key(password, salt_hex)
+    if key is None:
+        print("Key derivation failed", file=sys.stderr)
+        return 1
+
+    print(':'.join(f"{byte:02X}" for byte in key))
+    return 0
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))

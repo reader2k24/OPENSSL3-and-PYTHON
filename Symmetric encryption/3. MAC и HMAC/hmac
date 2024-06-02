@@ -1,0 +1,44 @@
+print("[*] Command: python3 hmac 'Your_file' 'SEC_KEY 256bit(openssl rand -hex 32)'")
+
+import hashlib
+import hmac
+import binascii
+import sys
+
+def calculate_hmac(file_path, key_hex):
+    try:
+        key = binascii.unhexlify(key_hex)
+    except binascii.Error:
+        print(f"Wrong key \"{key_hex}\", must consist of even number of hex digits", file=sys.stderr)
+        return None
+
+    hmac_obj = hmac.new(key, digestmod=hashlib.sha256)
+
+    try:
+        with open(file_path, 'rb') as f:
+            while chunk := f.read(64 * 1024):
+                hmac_obj.update(chunk)
+    except IOError:
+        print(f"Could not open or read file: {file_path}", file=sys.stderr)
+        return None
+
+    return hmac_obj.hexdigest().upper()
+
+def main(argv):
+    if len(argv) != 3:
+        print(f"Usage: {argv[0]} INPUT_FILE KEY_HEX", file=sys.stderr)
+        return 1
+
+    file_path = argv[1]
+    key_hex = argv[2]
+
+    hmac_hex = calculate_hmac(file_path, key_hex)
+    if hmac_hex is None:
+        print("HMAC calculation failed", file=sys.stderr)
+        return 1
+
+    print(hmac_hex)
+    return 0
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))

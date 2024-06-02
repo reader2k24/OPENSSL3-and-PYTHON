@@ -1,0 +1,2 @@
+# Command: openssl dgst -sha-256 -mac HMAC -macopt hexkey:<ключ-256bit> somefile.txt
+HMAC-SHA2-256(somefile.txt)= 4c3f4f1d82284f3c92b5d1b51da0137b79661ef253e178c071d7a2264161b9ad
