@@ -1,0 +1,44 @@
+from Crypto.PublicKey import RSA
+from Crypto.Cipher import PKCS1_OAEP
+import sys
+
+def decrypt(in_fname, out_fname, pkey_fname):
+    try:
+        # 1. Загрузить пару ключей RSA из файла
+        with open(pkey_fname, 'r') as pkey_file:
+            pkey = RSA.import_key(pkey_file.read())
+
+        # 2. Создать объект для расшифрования с использованием этого ключа
+        cipher = PKCS1_OAEP.new(pkey)
+
+        # 4. Прочитать шифртекст из входного файла
+        with open(in_fname, 'rb') as in_file:
+            ciphertext = in_file.read()
+
+        # 5. Расшифровать шифртекст
+        plaintext = cipher.decrypt(ciphertext)
+
+        # 6. Записать открытый текст в выходной файл
+        with open(out_fname, 'wb') as out_file:
+            out_file.write(plaintext)
+
+        print("Decryption succeeded", file=sys.stderr)
+        return 0
+
+    except Exception as e:
+        print(f"Decryption failed: {e}", file=sys.stderr)
+        return 1
+
+def main():
+    if len(sys.argv) != 4:
+        print(f"Usage: {sys.argv[0]} INPUT_FILE OUTPUT_FILE KEYPAIR_FILE", file=sys.stderr)
+        return 1
+
+    in_fname = sys.argv[1]
+    out_fname = sys.argv[2]
+    pkey_fname = sys.argv[3]
+
+    return decrypt(in_fname, out_fname, pkey_fname)
+
+if __name__ == "__main__":
+    sys.exit(main())
