@@ -1,0 +1,53 @@
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.asymmetric import ec
+from cryptography.hazmat.primitives.serialization import load_pem_public_key
+from cryptography.hazmat.primitives.asymmetric.utils import Prehashed
+from cryptography.exceptions import InvalidSignature
+import sys
+import traceback
+
+def verify(in_file, sig_file, pubkey_file):
+    try:
+        # Чтение открытого ключа
+        with open(pubkey_file, 'rb') as key_file:
+            public_key = load_pem_public_key(key_file.read())
+
+        # Инициализация хэш-объекта
+        hasher = hashes.Hash(hashes.SHA3_512())
+
+        # Чтение данных из входного файла и обновление хэш-объекта
+        with open(in_file, 'rb') as input_file:
+            while chunk := input_file.read(64 * 1024):
+                hasher.update(chunk)
+
+        digest = hasher.finalize()
+
+        # Чтение подписи
+        with open(sig_file, 'rb') as sig_f:
+            signature = sig_f.read()
+
+        # Проверка подписи с использованием открытого ключа
+        public_key.verify(signature, digest, ec.ECDSA(Prehashed(hashes.SHA3_512())))
+
+        print("Подпись подтверждена")
+        return 0
+
+    except InvalidSignature:
+        print("Ошибка: Подпись недействительна. Файл мог быть изменен.", file=sys.stderr)
+        return 1
+    except Exception as e:
+        print(f"Ошибка: {e}", file=sys.stderr)
+        traceback.print_exc(file=sys.stderr)
+        return 1
+
+if __name__ == "__main__":
+    if len(sys.argv) != 4:
+        print(f"Использование: {sys.argv[0]} INPUT_FILE SIGNATURE_FILE PUBKEY_FILE", file=sys.stderr)
+        sys.exit(1)
+
+    in_fname = sys.argv[1]
+    sig_fname = sys.argv[2]
+    pubkey_fname = sys.argv[3]
+
+    exit_code = verify(in_fname, sig_fname, pubkey_fname)
+    sys.exit(exit_code)

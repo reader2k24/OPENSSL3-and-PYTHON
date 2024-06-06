@@ -1,0 +1,49 @@
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.asymmetric import ec
+from cryptography.hazmat.primitives.serialization import load_pem_private_key
+from cryptography.hazmat.primitives.asymmetric.utils import Prehashed
+import sys
+import traceback
+
+def sign(in_file, sig_file, pkey_file):
+    try:
+        # Чтение закрытого ключа
+        with open(pkey_file, 'rb') as key_file:
+            private_key = load_pem_private_key(key_file.read(), password=None)
+
+        # Инициализация хэш-объекта
+        hasher = hashes.Hash(hashes.SHA3_512())
+
+        # Чтение данных из входного файла и обновление хэш-объекта
+        with open(in_file, 'rb') as input_file:
+            while chunk := input_file.read(64 * 1024):
+                hasher.update(chunk)
+
+        digest = hasher.finalize()
+
+        # Подпись хэша с использованием закрытого ключа
+        signature = private_key.sign(digest, ec.ECDSA(Prehashed(hashes.SHA3_512())))
+
+        # Запись подписи в файл
+        with open(sig_file, 'wb') as output_file:
+            output_file.write(signature)
+
+        print("Подпись успешно создана")
+        return 0
+
+    except Exception as e:
+        print(f"Ошибка: {e}", file=sys.stderr)
+        traceback.print_exc(file=sys.stderr)
+        return 1
+
+if __name__ == "__main__":
+    if len(sys.argv) != 4:
+        print(f"Использование: {sys.argv[0]} INPUT_FILE SIGNATURE_FILE KEYPAIR_FILE", file=sys.stderr)
+        sys.exit(1)
+
+    in_fname = sys.argv[1]
+    sig_fname = sys.argv[2]
+    pkey_fname = sys.argv[3]
+
+    exit_code = sign(in_fname, sig_fname, pkey_fname)
+    sys.exit(exit_code)
