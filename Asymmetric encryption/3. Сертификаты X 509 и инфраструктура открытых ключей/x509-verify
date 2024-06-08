@@ -1,0 +1,60 @@
+import sys
+from OpenSSL import crypto
+
+def load_certificates_from_file(file_path):
+    certificates = []
+    with open(file_path, 'rb') as cert_file:
+        while True:
+            cert_data = cert_file.read()
+            if not cert_data:
+                break
+            try:
+                cert = crypto.load_certificate(crypto.FILETYPE_PEM, cert_data)
+                certificates.append(cert)
+            except crypto.Error:
+                break
+    return certificates
+
+def verify(trusted_cert_fname, untrusted_cert_fname, target_cert_fname):
+    try:
+        # Load trusted certificate
+        with open(trusted_cert_fname, 'rb') as f:
+            trusted_cert_data = f.read()
+        trusted_cert = crypto.load_certificate(crypto.FILETYPE_PEM, trusted_cert_data)
+        
+        # Load untrusted certificates
+        untrusted_certs = load_certificates_from_file(untrusted_cert_fname)
+        
+        # Load target certificate
+        with open(target_cert_fname, 'rb') as f:
+            target_cert_data = f.read()
+        target_cert = crypto.load_certificate(crypto.FILETYPE_PEM, target_cert_data)
+        
+        # Create a certificate store and add the trusted certificate
+        store = crypto.X509Store()
+        store.add_cert(trusted_cert)
+        
+        # Create a store context with the target cert and untrusted certs
+        store_context = crypto.X509StoreContext(store, target_cert, untrusted_certs)
+        
+        # Verify the certificate
+        store_context.verify_certificate()
+        
+        print("Verification succeeded")
+        return 0
+
+    except Exception as e:
+        print(f"Verification failed: {e}")
+        return 1
+
+
+if __name__ == '__main__':
+    if len(sys.argv) != 4:
+        print(f"Usage: {sys.argv[0]} TRUSTED_CERT_FILE UNTRUSTED_CERT_FILE TARGET_CERT_FILE")
+        sys.exit(1)
+    
+    trusted_cert_fname = sys.argv[1]
+    untrusted_cert_fname = sys.argv[2]
+    target_cert_fname = sys.argv[3]
+    
+    sys.exit(verify(trusted_cert_fname, untrusted_cert_fname, target_cert_fname))
